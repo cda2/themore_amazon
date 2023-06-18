@@ -2,11 +2,8 @@
 
 ## 사용법
 
-1. python 설치 (3.9+)
-2. `python -m pip install playwright` 실행
-3. `python -m playwright install` 실행
-4. `main.py` 파일의 `ID` 및 `PW` 수정
-5. `python main.py` 실행
+1. `config.json` 파일을 열어서 아마존 계정 정보를 입력
+2. `poetry` 를 이용해 패키지 설치하여 실행
 
 ## 유의사항
 
