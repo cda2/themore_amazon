@@ -1,7 +1,11 @@
 import logging
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Mapping, Any, TypedDict
 
+import yaml
 from playwright.sync_api import sync_playwright, Browser, Page, Response, ElementHandle, TimeoutError, Playwright
+
+SECOND_IN_MILLISECONDS: int = 1000
 
 
 def init_logger() -> None:
@@ -34,18 +38,15 @@ def goto_url(page: Page, url: str) -> Response:
     return page.goto(url)
 
 
-def get_5999_won_concurrency(page: Page) -> str:
+def get_5999_won_concurrency(page: Page, is_safe: bool = False) -> float:
     url: str = "https://www.thecashback.kr/exchangerate.php"
     logging.info(f"getting 5999 won price from {url}...")
     goto_url(page, url)
-    logging.info("waiting 10 seconds to get 5999 won price safely...")
-    page.wait_for_timeout(10000)
     left_input: Optional[ElementHandle] = page.query_selector("#left_input")
     price: str = left_input.input_value()
-    # check if 5999 won price is available
-    str(float(price))
     logging.info(f"5999 won price: {price}")
-    return price
+
+    return float(price) - 0.05 if is_safe else float(price)
 
 
 def goto_amazon(page: Page) -> None:
@@ -125,6 +126,7 @@ def buy_reload(page: Page, password: str) -> None:
         logging.info("clicked disable. waiting for order button...")
     except TimeoutError as e:
         logging.info(f"no currency converter found: {e}")
+
     try:
         logging.info("waiting for order button...")
         page.wait_for_selector('''input[type="submit"][name="placeYourOrder1"]''')
@@ -152,7 +154,7 @@ def buy_reload(page: Page, password: str) -> None:
 
 def process_reload_all(browser: Browser, email: str, password: str):
     page: Page = init_page(browser)
-    price: str = get_5999_won_concurrency(page)
+    price: str = str(get_5999_won_concurrency(page))
     goto_amazon(page)
     type_price_and_submit(page, price)
     login(page, email, password)
@@ -160,8 +162,23 @@ def process_reload_all(browser: Browser, email: str, password: str):
     browser.close()
 
 
+class Config(TypedDict):
+    email: str
+    password: str
+
+
+def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
+
+    with open(file_path, mode="r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+
 if __name__ == "__main__":
     init_logger()
     play_wright: Playwright = sync_playwright().start()
     bs: Browser = init_browser(play_wright)
-    process_reload_all(bs, "ID", "PW")
+    config: Config = Config(**load_yaml_config("config.yml"))
+
+    process_reload_all(bs, **config)
