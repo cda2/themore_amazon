@@ -19,7 +19,7 @@ from playwright.sync_api import (
 )
 
 SEC_IN_MIL: int = 1000
-GLOBAL_TIMEOUT: int = 5 * SEC_IN_MIL
+GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
 
 
 def init_logger() -> None:
@@ -190,11 +190,11 @@ def buy_reload(
         save_html(page, out_path=f"error_{now_str()}.html")
 
     # block below line if you want to not buy
-    page.click("""input[type="submit"][name="placeYourOrder1"]""")
-    logging.info(
-        "clicked order button. waiting for order confirmation button ..."
-    )
-    page.wait_for_selector("#widget-purchaseConfirmationDetails")
+    # page.click("""input[type="submit"][name="placeYourOrder1"]""")
+    # logging.info(
+    #     "clicked order button. waiting for order confirmation button ..."
+    # )
+    # page.wait_for_selector("#widget-purchaseConfirmationDetails")
     logging.info("job finished. quit...")
     save_html(page, out_path=f"result_{now_str()}.html")
     page.close()
@@ -209,11 +209,16 @@ def process_reload_all(
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
     price: str = str(get_5999_won_concurrency(page=page, is_safe=is_safe))
-    goto_amazon(page)
-    type_price_and_submit(page, price)
-    login(page, email, password)
-    buy_reload(page, password)
-    browser.close()
+    try:
+        goto_amazon(page)
+        type_price_and_submit(page, price)
+        login(page, email, password)
+        buy_reload(page, password)
+    except Exception as e:
+        logging.error(f"error occured: {e}")
+        save_screenshot(page, out_path=f"error_{now_str()}.png")
+    finally:
+        browser.close()
 
 
 def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
@@ -245,6 +250,7 @@ class Config(TypedDict):
 if __name__ == "__main__":
     init_logger()
     args: argparse.Namespace = parse_args()
+    logging.info(f"args: {args}")
     pw_core: Playwright = sync_playwright().start()
     playwright_browser: Browser = init_browser(pw_core, headless=True)
     config: Config = Config(**load_yaml_config("config.yml"))
