@@ -237,7 +237,7 @@ def parse_args():
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
-        "--timeout", default=5, type=int, help="timeout in seconds"
+        "--timeout", default=GLOBAL_TIMEOUT, type=int, help="timeout in seconds"
     )
     return parser.parse_args()
 
