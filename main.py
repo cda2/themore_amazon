@@ -190,11 +190,11 @@ def buy_reload(
         save_html(page, out_path=f"error_{now_str()}.html")
 
     # block below line if you want to not buy
-    # page.click("""input[type="submit"][name="placeYourOrder1"]""")
-    # logging.info(
-    #     "clicked order button. waiting for order confirmation button ..."
-    # )
-    # page.wait_for_selector("#widget-purchaseConfirmationDetails")
+    page.click("""input[type="submit"][name="placeYourOrder1"]""")
+    logging.info(
+        "clicked order button. waiting for order confirmation button ..."
+    )
+    page.wait_for_selector("#widget-purchaseConfirmationDetails")
     logging.info("job finished. quit...")
     save_html(page, out_path=f"result_{now_str()}.html")
     page.close()
