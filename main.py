@@ -44,7 +44,7 @@ def init_page(browser: Browser, default_timeout: int = GLOBAL_TIMEOUT) -> Page:
     page: Page = browser.new_page()
     # set viewport
     page.set_viewport_size({"width": 1920, "height": 1080})
-    page.set_default_timeout(GLOBAL_TIMEOUT)
+    page.set_default_timeout(default_timeout)
     logging.info("page initialized.")
     return page
 
