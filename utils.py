@@ -30,7 +30,6 @@ def file_save_decorator(func, is_bytes: bool = False):
 
 
 text_save_decorator = file_save_decorator
-
 bytes_save_decorator = partial(file_save_decorator, is_bytes=True)
 
 

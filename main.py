@@ -1,11 +1,9 @@
 import argparse
-import datetime
 import logging
 from argparse import ArgumentParser
-from functools import partial, wraps
-from os import PathLike
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, Mapping, Optional, TypedDict
+from typing import Any, Mapping, Optional
 
 import yaml
 from playwright.sync_api import (
@@ -18,16 +16,11 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
+from captcha_solve import is_captcha_present, solve_captcha_with_solver
+from utils import Config, init_logger, now_str, save_html, save_screenshot
+
 SEC_IN_MIL: int = 1000
-GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
-
-
-def init_logger() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+GLOBAL_TIMEOUT: int = int(6000.5 * SEC_IN_MIL)
 
 
 def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
@@ -53,19 +46,23 @@ def goto_url(page: Page, url: str) -> Response:
     return page.goto(url)
 
 
-def now_str(dt_fmt: str = "%Y%m%d_%H%M%S") -> str:
-    return datetime.datetime.now().strftime(dt_fmt)
-
-
-def get_5999_won_currency(page: Page, is_safe: bool = True) -> float:
+def get_5999_won_currency(page: Page, is_safe: bool = True) -> Decimal:
     url: str = "https://www.thecashback.kr/exchangerate.php"
     logging.info(f"getting 5999 won price from {url}...")
     goto_url(page, url)
-    left_input: Optional[ElementHandle] = page.query_selector("#left_input")
-    price: str = left_input.input_value()
-    logging.info(f"5999 won price: {price}")
+    left_input: Optional[ElementHandle] = page.wait_for_selector("#left_input")
+    price: str = left_input.input_value().strip()
+    if not price or price == "0":
+        logging.error("price is empty. maybe not operating time?")
+        exit(1)
 
-    return float(price) - 0.03 if is_safe else float(price)
+    logging.info(f"5999 won price: {price}")
+    dec_price: Decimal = Decimal(price)
+
+    if is_safe:
+        dec_price -= Decimal("0.01")
+
+    return dec_price
 
 
 def goto_amazon(page: Page) -> None:
@@ -75,10 +72,46 @@ def goto_amazon(page: Page) -> None:
 
 
 def type_price_and_submit(page: Page, price: str) -> None:
-    logging.info(f"typing price {price}...")
-    page.type("#gcui-asv-reload-form-custom-amount", price)
-    logging.info("submitting...")
-    page.click("input[type='submit'][name='submit.gc-buy-now']")
+    price_input_sel: str = "#gcui-asv-reload-form-custom-amount"
+    submit_btn_sel: str = "input[type='submit'][name='submit.gc-buy-now']"
+
+    # 1. find price input
+    price_input: ElementHandle = page.wait_for_selector(price_input_sel)
+
+    # 2. clear price input
+    price_input.fill("")
+
+    # 3. type price
+    price_input.type(price)
+
+    # 4. wait for submit button (active state, not disabled)
+    logging.info("waiting for submit button...")
+    submit_btn_element: ElementHandle = page.wait_for_selector(submit_btn_sel)
+
+    # 5. check price input value,
+    # price input cleared when submit button is active in some cases
+    logging.info("found submit button. wait to disable predefined price...")
+    try:
+        page.wait_for_selector(
+            ".gcui-asv-reload-predefined-amount-button[aria-checked='true']",
+        )
+    except TimeoutError:
+        logging.info("not found any active predefined price. continue...")
+
+    price_input_value: str = price_input.input_value().strip()
+    logging.info(f"price input value: {price_input_value}")
+
+    while not price_input_value or price_input_value != price:
+        page.wait_for_timeout(500)
+        logging.warning("price input value is not correct. re-typing price...")
+        price_input.fill("")
+        price_input.type(price)
+        price_input_value = price_input.input_value().strip()
+
+    # 6. click submit button
+    assert price_input_value == price
+    logging.info("price input value is correct. clicking submit button...")
+    submit_btn_element.click()
 
 
 def login(page: Page, email: str, password: str) -> None:
@@ -96,78 +129,25 @@ def login(page: Page, email: str, password: str) -> None:
     logging.info("login complete.")
 
 
-def captcha_solve(page: Page, password: str) -> None:
-    try:
-        password_element: ElementHandle = page.wait_for_selector(
-            "#ap_password",
-        )
-        logging.info("found password element. typing password...")
-        password_element.type(password)
-        logging.info("typed password. solving captcha...")
-        save_screenshot(page, out_path=f"captcha_{now_str()}.png")
-        logging.info("solve captcha manually.")
-        captcha_string: str = input("SOLVE CAPTCHA STRING: ")
-        page.type("#auth-captcha-guess", captcha_string)
-        logging.info("solved captcha. submitting...")
-        page.click("#signInSubmit")
-        logging.info("submitted.")
-
-    except TimeoutError:
-        logging.info("no captcha found. continuing...")
-
-
-def file_save_decorator(func, is_bytes: bool = False):
-    @wraps(func)
-    def wrapper(
-        page: Page,
-        out_path: str | PathLike = f"out_{now_str()}",
-        **kwargs,
-    ) -> None:
-        exec_result: str | bytes = func(page, **kwargs)
-        path: Path = Path(out_path)
-        if is_bytes:
-            path.write_bytes(exec_result)
-        else:
-            path.write_text(exec_result)
-
-    return wrapper
-
-
-text_save_decorator = file_save_decorator
-bytes_save_decorator = partial(file_save_decorator, is_bytes=True)
-
-
-@text_save_decorator
-def save_html(page: Page) -> str:
-    return page.content()
-
-
-@bytes_save_decorator
-def save_screenshot(page: Page) -> bytes:
-    return page.screenshot()
-
-
 def buy_reload(
     page: Page,
-    password: str,
 ) -> None:
-    captcha_solve(page, password)
     # check email verification
     try:
-        logging.info("Checking email verification needed...")
+        logging.info("checking email verification needed...")
         page.wait_for_selector(
             "#channelDetailsWithImprovedLayout",
         )
-        logging.info("Email verification needed.")
-        logging.info("Press enter verification code in your email.")
-        input("ENTER TO CONTINUE: ")
+        logging.info("email verification needed.")
+        logging.info("check your email.")
+        input("ENTER ANYTHING TO CONTINUE: ")
         logging.info("continuing...")
     except TimeoutError:
-        logging.info("Email verification not needed.")
+        logging.info("email verification not needed.")
 
     # disable amazon currency converter
     try:
-        logging.info("Trying to disable amazon currency converter...")
+        logging.info("trying to disable amazon currency converter...")
         disable_radio: ElementHandle = page.wait_for_selector(
             "#marketplaceRadio",
         )
@@ -183,11 +163,13 @@ def buy_reload(
         )
         logging.info("found order button.")
     except TimeoutError:
-        logging.info("no order button found. screenshotting...")
+        logging.error("no order button found. screenshotting...")
         save_screenshot(page, out_path=f"error_{now_str()}.png")
-        logging.info("extracting html...")
+        logging.warning("extracting html...")
         # save html
         save_html(page, out_path=f"error_{now_str()}.html")
+        logging.warning("exiting...")
+        exit(1)
 
     # block below line if you want to not buy
     page.click("""input[type="submit"][name="placeYourOrder1"]""")
@@ -208,12 +190,17 @@ def process_reload_all(
     default_timeout: int = GLOBAL_TIMEOUT,
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
-    price: str = str(get_5999_won_currency(page=page, is_safe=is_safe))
+    dollar_dec: Decimal = get_5999_won_currency(page=page, is_safe=is_safe)
+    price: str = str(dollar_dec.quantize(Decimal("1e-2")))
     try:
         goto_amazon(page)
+        if is_captcha_present(page):
+            solve_captcha_with_solver(page)
         type_price_and_submit(page, price)
         login(page, email, password)
-        buy_reload(page, password)
+        if is_captcha_present(page):
+            solve_captcha_with_solver(page)
+        buy_reload(page)
     except Exception as e:
         logging.error(f"error occured: {e}")
         save_screenshot(page, out_path=f"error_{now_str()}.png")
@@ -245,17 +232,12 @@ def parse_args():
     return parser.parse_args()
 
 
-class Config(TypedDict):
-    email: str
-    password: str
-
-
 if __name__ == "__main__":
     init_logger()
     args: argparse.Namespace = parse_args()
     logging.info(f"args: {args}")
     pw_core: Playwright = sync_playwright().start()
-    playwright_browser: Browser = init_browser(pw_core, headless=True)
+    playwright_browser: Browser = init_browser(pw_core, headless=False)
     config: Config = Config(**load_yaml_config("config.yml"))
 
     process_reload_all(
