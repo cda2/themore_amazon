@@ -57,7 +57,7 @@ def now_str(dt_fmt: str = "%Y%m%d_%H%M%S") -> str:
     return datetime.datetime.now().strftime(dt_fmt)
 
 
-def get_5999_won_concurrency(page: Page, is_safe: bool = True) -> float:
+def get_5999_won_currency(page: Page, is_safe: bool = True) -> float:
     url: str = "https://www.thecashback.kr/exchangerate.php"
     logging.info(f"getting 5999 won price from {url}...")
     goto_url(page, url)
@@ -208,7 +208,7 @@ def process_reload_all(
     default_timeout: int = GLOBAL_TIMEOUT,
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
-    price: str = str(get_5999_won_concurrency(page=page, is_safe=is_safe))
+    price: str = str(get_5999_won_currency(page=page, is_safe=is_safe))
     try:
         goto_amazon(page)
         type_price_and_submit(page, price)
