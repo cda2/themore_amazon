@@ -2,20 +2,20 @@ import argparse
 import datetime
 import logging
 from argparse import ArgumentParser
-from functools import wraps, partial
+from functools import partial, wraps
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Mapping, Any, TypedDict
+from typing import Any, Mapping, Optional, TypedDict
 
 import yaml
 from playwright.sync_api import (
-    sync_playwright,
     Browser,
-    Page,
-    Response,
     ElementHandle,
-    TimeoutError,
+    Page,
     Playwright,
+    Response,
+    TimeoutError,
+    sync_playwright,
 )
 
 SEC_IN_MIL: int = 1000
@@ -179,7 +179,7 @@ def buy_reload(
     try:
         logging.info("waiting for order button...")
         page.wait_for_selector(
-            """input[type="submit"][name="placeYourOrder1"]"""
+            """input[type="submit"][name="placeYourOrder1"]""",
         )
         logging.info("found order button.")
     except TimeoutError:
@@ -192,7 +192,7 @@ def buy_reload(
     # block below line if you want to not buy
     page.click("""input[type="submit"][name="placeYourOrder1"]""")
     logging.info(
-        "clicked order button. waiting for order confirmation button ..."
+        "clicked order button. waiting for order confirmation button ...",
     )
     page.wait_for_selector("#widget-purchaseConfirmationDetails")
     logging.info("job finished. quit...")
@@ -225,7 +225,7 @@ def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
-    with open(file_path, mode="r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -237,7 +237,10 @@ def parse_args():
         action=argparse.BooleanOptionalAction,
     )
     parser.add_argument(
-        "--timeout", default=GLOBAL_TIMEOUT, type=int, help="timeout in seconds"
+        "--timeout",
+        default=GLOBAL_TIMEOUT,
+        type=int,
+        help="timeout in seconds",
     )
     return parser.parse_args()
 
