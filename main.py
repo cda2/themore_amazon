@@ -219,6 +219,7 @@ def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
 def parse_args():
     parser: ArgumentParser = argparse.ArgumentParser()
     parser.add_argument(
+        "-s",
         "--safe",
         default=True,
         action=argparse.BooleanOptionalAction,
@@ -229,6 +230,12 @@ def parse_args():
         type=int,
         help="timeout in seconds",
     )
+    parser.add_argument(
+        "-h",
+        "--headless",
+        default=False,
+        action=argparse.BooleanOptionalAction,
+    )
     return parser.parse_args()
 
 
@@ -237,7 +244,7 @@ if __name__ == "__main__":
     args: argparse.Namespace = parse_args()
     logging.info(f"args: {args}")
     pw_core: Playwright = sync_playwright().start()
-    playwright_browser: Browser = init_browser(pw_core, headless=False)
+    playwright_browser: Browser = init_browser(pw_core, headless=args.headless)
     config: Config = Config(**load_yaml_config("config.yml"))
 
     process_reload_all(
