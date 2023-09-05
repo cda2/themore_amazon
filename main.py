@@ -231,7 +231,6 @@ def parse_args():
         help="timeout in seconds",
     )
     parser.add_argument(
-        "-h",
         "--headless",
         default=False,
         action=argparse.BooleanOptionalAction,
