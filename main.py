@@ -228,7 +228,7 @@ def parse_args():
         "--timeout",
         default=GLOBAL_TIMEOUT,
         type=int,
-        help="timeout in seconds",
+        help="timeout in milliseconds",
     )
     parser.add_argument(
         "--headless",
