@@ -14,6 +14,7 @@ amazoncaptcha = "^0.5.11"
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.0.287"
 black = "^23.7.0"
+pre-commit = "^3.4.0"
 
 [tool.black]
 line-length = 80
