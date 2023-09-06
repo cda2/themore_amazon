@@ -20,7 +20,7 @@ from captcha_solve import is_captcha_present, solve_captcha_with_solver
 from utils import Config, init_logger, now_str, save_html, save_screenshot
 
 SEC_IN_MIL: int = 1000
-GLOBAL_TIMEOUT: int = int(6000.5 * SEC_IN_MIL)
+GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
 
 
 def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
