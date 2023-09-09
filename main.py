@@ -1,9 +1,11 @@
 import argparse
 import logging
+import sys
 from argparse import ArgumentParser
+from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Mapping, Optional
+from typing import Any
 
 import yaml
 from playwright.sync_api import (
@@ -50,11 +52,11 @@ def get_5999_won_currency(page: Page, is_safe: bool = True) -> Decimal:
     url: str = "https://www.thecashback.kr/exchangerate.php"
     logging.info(f"getting 5999 won price from {url}...")
     goto_url(page, url)
-    left_input: Optional[ElementHandle] = page.wait_for_selector("#left_input")
+    left_input: ElementHandle | None = page.wait_for_selector("#left_input")
     price: str = left_input.input_value().strip()
     if not price or price == "0":
         logging.error("price is empty. maybe not operating time?")
-        exit(1)
+        sys.exit(1)
 
     logging.info(f"5999 won price: {price}")
     dec_price: Decimal = Decimal(price)
@@ -169,7 +171,7 @@ def buy_reload(
         # save html
         save_html(page, out_path=f"error_{now_str()}.html")
         logging.warning("exiting...")
-        exit(1)
+        sys.exit(1)
 
     # block below line if you want to not buy
     page.click("""input[type="submit"][name="placeYourOrder1"]""")
