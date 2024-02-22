@@ -2,7 +2,7 @@ default_language_version:
   python: python3.11
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: check-added-large-files
       - id: check-json
@@ -16,7 +16,7 @@ repos:
         args:
           - --fix=lf
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.4
+    rev: v1.5.5
     hooks:
       - id: forbid-crlf
       - id: remove-crlf
@@ -29,15 +29,9 @@ repos:
         args:
           - --py3-plus
           - --keep-runtime-typing
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.287
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.2.2
     hooks:
       - id: ruff
-        args:
-          - --config=pyproject.toml
-          - --fix
-  - repo: https://github.com/psf/black
-    rev: 23.7.0
-    hooks:
-      - id: black
-        args: [ --config=pyproject.toml ]
+        args: [ --fix ]
+      - id: ruff-format
