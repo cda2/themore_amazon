@@ -138,7 +138,7 @@ def login(page: Page, email: str, password: str) -> None:
 
 
 def buy_reload(
-        page: Page,
+    page: Page,
 ) -> None:
     # check email verification
     try:
@@ -191,11 +191,11 @@ def buy_reload(
 
 
 def process_reload_all(
-        browser: Browser,
-        email: str,
-        password: str,
-        is_safe: bool = True,
-        default_timeout: int = GLOBAL_TIMEOUT,
+    browser: Browser,
+    email: str,
+    password: str,
+    is_safe: bool = True,
+    default_timeout: int = GLOBAL_TIMEOUT,
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
     dollar_dec: Decimal = get_5999_won_currency(page=page, is_safe=is_safe)
