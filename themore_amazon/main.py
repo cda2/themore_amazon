@@ -15,7 +15,6 @@ from playwright.sync_api import (
     Playwright,
     Response,
     TimeoutError,
-    sync_playwright,
 )
 
 from themore_amazon.captcha_solve import (
@@ -23,8 +22,6 @@ from themore_amazon.captcha_solve import (
     solve_captcha_with_solver,
 )
 from themore_amazon.utils import (
-    Config,
-    init_logger,
     now_str,
     save_html,
     save_screenshot,
@@ -36,7 +33,7 @@ GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
 
 def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
     logging.info("initializing browser...")
-    browser: Browser = playwright.chromium.launch(
+    browser: Browser = playwright.firefox.launch(
         headless=headless,
     )
     logging.info("browser initialized.")
@@ -247,19 +244,3 @@ def parse_args():
         action=argparse.BooleanOptionalAction,
     )
     return parser.parse_args()
-
-
-if __name__ == "__main__":
-    init_logger()
-    args: argparse.Namespace = parse_args()
-    logging.info(f"args: {args}")
-    pw_core: Playwright = sync_playwright().start()
-    playwright_browser: Browser = init_browser(pw_core, headless=args.headless)
-    config: Config = Config(**load_yaml_config("config.yml"))
-
-    process_reload_all(
-        playwright_browser,
-        is_safe=args.safe,
-        default_timeout=args.timeout,
-        **config,
-    )
