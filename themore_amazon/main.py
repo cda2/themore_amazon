@@ -220,7 +220,7 @@ def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
-    with open(file_path, encoding="utf-8") as f:
+    with Path.open(file_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
