@@ -18,8 +18,17 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-from captcha_solve import is_captcha_present, solve_captcha_with_solver
-from utils import Config, init_logger, now_str, save_html, save_screenshot
+from themore_amazon.captcha_solve import (
+    is_captcha_present,
+    solve_captcha_with_solver,
+)
+from themore_amazon.utils import (
+    Config,
+    init_logger,
+    now_str,
+    save_html,
+    save_screenshot,
+)
 
 SEC_IN_MIL: int = 1000
 GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
@@ -132,7 +141,7 @@ def login(page: Page, email: str, password: str) -> None:
 
 
 def buy_reload(
-    page: Page,
+        page: Page,
 ) -> None:
     # check email verification
     try:
@@ -185,11 +194,11 @@ def buy_reload(
 
 
 def process_reload_all(
-    browser: Browser,
-    email: str,
-    password: str,
-    is_safe: bool = True,
-    default_timeout: int = GLOBAL_TIMEOUT,
+        browser: Browser,
+        email: str,
+        password: str,
+        is_safe: bool = True,
+        default_timeout: int = GLOBAL_TIMEOUT,
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
     dollar_dec: Decimal = get_5999_won_currency(page=page, is_safe=is_safe)
