@@ -5,22 +5,21 @@ WORKDIR /app
 
 # Copy the current directory contents into the container at /app
 COPY themore_amazon /app/themore_amazon
-COPY poetry.lock pyproject.toml /app/
+COPY pyproject.toml /app/
 
-# Update apt-get
-RUN apt-get update
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+RUN /install.sh && rm /install.sh
 
-# Install any needed packages specified in pyproject.toml
-RUN python -m pip install --no-cache-dir poetry
-RUN poetry config virtualenvs.create false
-RUN poetry install --no-dev
+# Install the required packages
+RUN /root/.cargo/bin/uv pip compile pyproject.toml -o requirements.txt \
+    && /root/.cargo/bin/uv pip install -r requirements.txt -n --no-deps --system \
+    && rm requirements.txt
 
-# Playwright dependencies
-RUN python -m playwright install firefox
-RUN python -m playwright install-deps
+# Install Playwright dependencies, but only Firefox for image size
+RUN playwright install firefox --with-deps
 
-# Xvfb run install
-RUN apt-get install -y xvfb xauth
+# Update apt-get && Xvfb run install
+RUN apt-get update && apt-get install -y xvfb xauth
 
 # Run the application
 CMD ["xvfb-run", "python", "-m", "themore_amazon"]
