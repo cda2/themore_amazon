@@ -1,2 +1,7 @@
 email: "your_email@example.com"
 password: "your_password"
+timeout: 10000
+headless: false
+min_order_price: 5.0
+is_safe: true
+safe_gap: 1.0

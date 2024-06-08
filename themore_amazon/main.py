@@ -1,11 +1,7 @@
-import argparse
 import logging
 import sys
-from argparse import ArgumentParser
-from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 import yaml
 from playwright.sync_api import (
@@ -16,6 +12,7 @@ from playwright.sync_api import (
     Playwright,
     Response,
     TimeoutError,
+    sync_playwright,
 )
 
 from themore_amazon.captcha_solve import (
@@ -23,13 +20,13 @@ from themore_amazon.captcha_solve import (
     solve_captcha_with_solver,
 )
 from themore_amazon.utils import (
+    Config,
     now_str,
     save_html,
     save_screenshot,
 )
 
-SEC_IN_MIL: int = 1000
-GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
+DEFAULT_TIMEOUT: float = 1e4
 
 
 def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
@@ -41,12 +38,15 @@ def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
     return browser
 
 
-def init_page(browser: Browser, default_timeout: int = GLOBAL_TIMEOUT) -> Page:
+def init_page(
+    browser: Browser,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Page:
     logging.info("initializing page...")
     page: Page = browser.new_page()
     # set viewport
     page.set_viewport_size({"width": 1920, "height": 1080})
-    page.set_default_timeout(default_timeout)
+    page.set_default_timeout(timeout)
     logging.info("page initialized.")
     return page
 
@@ -194,21 +194,26 @@ def buy_reload(
     )
     page.wait_for_selector("#widget-purchaseConfirmationDetails")
     logging.info("job finished. quit...")
-    save_html(page, out_path=f"result_{now_str()}.html")
     page.close()
 
 
 def process_reload_all(
-    browser: Browser,
-    email: str,
-    password: str,
-    is_safe: bool = True,
-    default_timeout: int = GLOBAL_TIMEOUT,
+    config: Config,
 ) -> None:
-    page: Page = init_page(browser=browser, default_timeout=default_timeout)
+    pw_core: Playwright = sync_playwright().start()
+    browser: Browser = init_browser(
+        pw_core,
+        headless=config.headless,
+    )
+    page: Page = init_page(
+        browser=browser,
+        timeout=config.timeout,
+    )
     dollar_dec: Decimal = get_lowest_reasonable_price(
         page=page,
-        is_safe=is_safe,
+        min_order_price=config.min_order_price,
+        is_safe=config.is_safe,
+        safe_gap=config.safe_gap,
     )
     price: str = str(dollar_dec.quantize(Decimal("1e-2")))
     try:
@@ -216,7 +221,7 @@ def process_reload_all(
         if is_captcha_present(page):
             solve_captcha_with_solver(page)
         type_price_and_submit(page, price)
-        login(page, email, password)
+        login(page, config.email, config.password)
         if is_captcha_present(page):
             solve_captcha_with_solver(page)
         buy_reload(page)
@@ -227,31 +232,9 @@ def process_reload_all(
         browser.close()
 
 
-def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
+def load_yaml_config(file_path: Path | str) -> Config:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
     with Path.open(file_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def parse_args():
-    parser: ArgumentParser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-s",
-        "--safe",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-    )
-    parser.add_argument(
-        "--timeout",
-        default=GLOBAL_TIMEOUT,
-        type=int,
-        help="timeout in milliseconds",
-    )
-    parser.add_argument(
-        "--headless",
-        default=False,
-        action=argparse.BooleanOptionalAction,
-    )
-    return parser.parse_args()
+        return Config(**yaml.safe_load(f))

@@ -1,32 +1,26 @@
-import argparse
-import logging
-
-from playwright.sync_api import Browser, Playwright, sync_playwright
+from argparse import ArgumentParser
 
 from themore_amazon.main import (
-    init_browser,
     load_yaml_config,
-    parse_args,
     process_reload_all,
 )
 from themore_amazon.utils import Config, init_logger
 
 
-def main() -> None:
+def main(config_path: str) -> None:
     init_logger()
-    args: argparse.Namespace = parse_args()
-    logging.info(f"args: {args}")
-    pw_core: Playwright = sync_playwright().start()
-    playwright_browser: Browser = init_browser(pw_core, headless=args.headless)
-    config: Config = Config(**load_yaml_config("config.yml"))
-
-    process_reload_all(
-        playwright_browser,
-        is_safe=args.safe,
-        default_timeout=args.timeout,
-        **config,
-    )
+    config: Config = load_yaml_config(str(config_path))
+    process_reload_all(config=config)
 
 
 if __name__ == "__main__":
-    main()
+    parser = ArgumentParser()
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        default="config.yml",
+        help="path to config file",
+    )
+    args = parser.parse_args()
+    main(args.config)
