@@ -3,8 +3,8 @@
 ## 기능
 
 - Playwright 기반 자동화
-    1. [www.thecashback.kr](https://www.thecashback.kr/exchangerate.php) 에 접속하여
-       5999에 가장 가까운 달러 금액을 추출
+    1. [TheMore.App](https://themore.app) 에서 구매 가능한 아마존 기프트 카드 목록 중 가장 저렴한 가격의 기프트 카드 추출
+        - 환율 보정 등의 기능을 사용하여 사용자가 원하는 정책 기반으로 설정
     2. 아마존 기프트 카드 구매 페이지에 접속하여 추출한 달러 금액으로 기프트 카드 구매 시도
     3. 입력한 계정 정보로 로그인 시도
         - 기본적인 Captcha의 경우 자동으로 처리되나, OTP, 이메일 인증 등은 처리 불가
