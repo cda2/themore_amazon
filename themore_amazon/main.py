@@ -69,9 +69,12 @@ def get_lowest_reasonable_price(
         safe_gap_locator: Locator = page.locator("input#currencySafeGap")
         safe_gap_locator.fill(str(safe_gap))
 
-    for dollar_price_td in page.query_selector_all(
-        "table tbody tr td:nth-child(1)",
-    ):
+    selector = "#theMoreTable tbody tr td:nth-child(1)"
+
+    # wait for price table to load by javascript
+    page.wait_for_selector(selector)
+
+    for dollar_price_td in page.query_selector_all(selector):
         dollar_str: str = dollar_price_td.get_attribute("data-copy").strip()
         logging.debug(f"found dollar price: {dollar_str}")
         if (price := Decimal(dollar_str)) >= min_order_price:
