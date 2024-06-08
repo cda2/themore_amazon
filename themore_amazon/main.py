@@ -11,6 +11,7 @@ import yaml
 from playwright.sync_api import (
     Browser,
     ElementHandle,
+    Locator,
     Page,
     Playwright,
     Response,
@@ -54,23 +55,30 @@ def goto_url(page: Page, url: str) -> Response:
     return page.goto(url)
 
 
-def get_5999_won_currency(page: Page, is_safe: bool = True) -> Decimal:
-    url: str = "https://www.thecashback.kr/exchangerate.php"
-    logging.info(f"getting 5999 won price from {url}...")
+def get_lowest_reasonable_price(
+    page: Page,
+    min_order_price: float = 5.0,
+    is_safe: bool = True,
+    safe_gap: float = 1.0,
+) -> Decimal:
+    url: str = "https://themore.app/?p=0&currency=USD"
+    logging.info(f"getting lowest reasonable price from {url}...")
     goto_url(page, url)
-    left_input: ElementHandle | None = page.wait_for_selector("#left_input")
-    price: str = left_input.input_value().strip()
-    if not price or price == "0":
-        logging.error("price is empty. maybe not operating time?")
-        sys.exit(1)
-
-    logging.info(f"5999 won price: {price}")
-    dec_price: Decimal = Decimal(price)
 
     if is_safe:
-        dec_price -= Decimal("0.01")
+        safe_gap_locator: Locator = page.locator("input#currencySafeGap")
+        safe_gap_locator.fill(str(safe_gap))
 
-    return dec_price
+    for dollar_price_td in page.query_selector_all(
+        "table tbody tr td:nth-child(1)",
+    ):
+        dollar_str: str = dollar_price_td.get_attribute("data-copy").strip()
+        logging.debug(f"found dollar price: {dollar_str}")
+        if (price := Decimal(dollar_str)) >= min_order_price:
+            logging.info(f"found reasonable price: {price}")
+            return price
+
+    raise ValueError("No reasonable price found.")
 
 
 def goto_amazon(page: Page) -> None:
@@ -198,7 +206,10 @@ def process_reload_all(
     default_timeout: int = GLOBAL_TIMEOUT,
 ) -> None:
     page: Page = init_page(browser=browser, default_timeout=default_timeout)
-    dollar_dec: Decimal = get_5999_won_currency(page=page, is_safe=is_safe)
+    dollar_dec: Decimal = get_lowest_reasonable_price(
+        page=page,
+        is_safe=is_safe,
+    )
     price: str = str(dollar_dec.quantize(Decimal("1e-2")))
     try:
         goto_amazon(page)
