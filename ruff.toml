@@ -1,0 +1,67 @@
+line-length = 80
+fix = true
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "_scripts",
+    "_script"
+]
+
+lint.select = [
+    "E", # pycodestyle errors
+    "F", # pyflakes
+    "W", # pycodestyle warnings
+    "I", # isort
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+    "PT", # flake8-pytest-style
+    "ASYNC", # flake8-async
+    "PTH", # flake8-use-pathlib
+    "N", # pep8-naming
+    "PL", # pylint
+    "TCH", # flake8-type-checking
+    "SIM", # flake8-simplify
+    "ANN", # flake8-annotations
+    "RUF", # ruff specific rules
+]
+lint.ignore = [
+    "ANN101", # Missing type annotation for self in method
+    "ANN102", # Missing type annotation for cls in classmethod
+    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed in {name}
+    "B008", # Do not perform function call {name} in argument defaults
+    "B905", # zip() without an explicit strict= parameter
+    "C901", # {name} is too complex ({complexity} > {max_complexity})
+    "E501", # Line too long
+    "F405", # name may be undefined, or defined from star imports: module
+    "F841", # Local variable {name} is assigned to but never used
+    "F842", # Local variable {name} is annotated but never used
+]
+target-version = "py310"

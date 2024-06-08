@@ -1,20 +1,18 @@
-import argparse
 import logging
 import sys
-from argparse import ArgumentParser
-from collections.abc import Mapping
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
 
 import yaml
 from playwright.sync_api import (
     Browser,
     ElementHandle,
+    Locator,
     Page,
     Playwright,
     Response,
     TimeoutError,
+    sync_playwright,
 )
 
 from themore_amazon.captcha_solve import (
@@ -22,13 +20,13 @@ from themore_amazon.captcha_solve import (
     solve_captcha_with_solver,
 )
 from themore_amazon.utils import (
+    Config,
     now_str,
     save_html,
     save_screenshot,
 )
 
-SEC_IN_MIL: int = 1000
-GLOBAL_TIMEOUT: int = int(6.5 * SEC_IN_MIL)
+DEFAULT_TIMEOUT: float = 1e4
 
 
 def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
@@ -40,12 +38,15 @@ def init_browser(playwright: Playwright, headless: bool = False) -> Browser:
     return browser
 
 
-def init_page(browser: Browser, default_timeout: int = GLOBAL_TIMEOUT) -> Page:
+def init_page(
+    browser: Browser,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> Page:
     logging.info("initializing page...")
     page: Page = browser.new_page()
     # set viewport
     page.set_viewport_size({"width": 1920, "height": 1080})
-    page.set_default_timeout(default_timeout)
+    page.set_default_timeout(timeout)
     logging.info("page initialized.")
     return page
 
@@ -54,23 +55,33 @@ def goto_url(page: Page, url: str) -> Response:
     return page.goto(url)
 
 
-def get_5999_won_currency(page: Page, is_safe: bool = True) -> Decimal:
-    url: str = "https://www.thecashback.kr/exchangerate.php"
-    logging.info(f"getting 5999 won price from {url}...")
+def get_lowest_reasonable_price(
+    page: Page,
+    min_order_price: float = 5.0,
+    is_safe: bool = True,
+    safe_gap: float = 1.0,
+) -> Decimal:
+    url: str = "https://themore.app/?p=0&currency=USD"
+    logging.info(f"getting lowest reasonable price from {url}...")
     goto_url(page, url)
-    left_input: ElementHandle | None = page.wait_for_selector("#left_input")
-    price: str = left_input.input_value().strip()
-    if not price or price == "0":
-        logging.error("price is empty. maybe not operating time?")
-        sys.exit(1)
-
-    logging.info(f"5999 won price: {price}")
-    dec_price: Decimal = Decimal(price)
 
     if is_safe:
-        dec_price -= Decimal("0.01")
+        safe_gap_locator: Locator = page.locator("input#currencySafeGap")
+        safe_gap_locator.fill(str(safe_gap))
 
-    return dec_price
+    selector = "#theMoreTable tbody tr td:nth-child(1)"
+
+    # wait for price table to load by javascript
+    page.wait_for_selector(selector)
+
+    for dollar_price_td in page.query_selector_all(selector):
+        dollar_str: str = dollar_price_td.get_attribute("data-copy").strip()
+        logging.debug(f"found dollar price: {dollar_str}")
+        if (price := Decimal(dollar_str)) >= min_order_price:
+            logging.info(f"found reasonable price: {price}")
+            return price
+
+    raise ValueError("No reasonable price found.")
 
 
 def goto_amazon(page: Page) -> None:
@@ -186,26 +197,34 @@ def buy_reload(
     )
     page.wait_for_selector("#widget-purchaseConfirmationDetails")
     logging.info("job finished. quit...")
-    save_html(page, out_path=f"result_{now_str()}.html")
     page.close()
 
 
 def process_reload_all(
-    browser: Browser,
-    email: str,
-    password: str,
-    is_safe: bool = True,
-    default_timeout: int = GLOBAL_TIMEOUT,
+    config: Config,
 ) -> None:
-    page: Page = init_page(browser=browser, default_timeout=default_timeout)
-    dollar_dec: Decimal = get_5999_won_currency(page=page, is_safe=is_safe)
+    pw_core: Playwright = sync_playwright().start()
+    browser: Browser = init_browser(
+        pw_core,
+        headless=config.headless,
+    )
+    page: Page = init_page(
+        browser=browser,
+        timeout=config.timeout,
+    )
+    dollar_dec: Decimal = get_lowest_reasonable_price(
+        page=page,
+        min_order_price=config.min_order_price,
+        is_safe=config.is_safe,
+        safe_gap=config.safe_gap,
+    )
     price: str = str(dollar_dec.quantize(Decimal("1e-2")))
     try:
         goto_amazon(page)
         if is_captcha_present(page):
             solve_captcha_with_solver(page)
         type_price_and_submit(page, price)
-        login(page, email, password)
+        login(page, config.email, config.password)
         if is_captcha_present(page):
             solve_captcha_with_solver(page)
         buy_reload(page)
@@ -216,31 +235,9 @@ def process_reload_all(
         browser.close()
 
 
-def load_yaml_config(file_path: Path | str) -> Mapping[str, Any]:
+def load_yaml_config(file_path: Path | str) -> Config:
     if isinstance(file_path, str):
         file_path = Path(file_path)
 
     with Path.open(file_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-
-def parse_args():
-    parser: ArgumentParser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-s",
-        "--safe",
-        default=True,
-        action=argparse.BooleanOptionalAction,
-    )
-    parser.add_argument(
-        "--timeout",
-        default=GLOBAL_TIMEOUT,
-        type=int,
-        help="timeout in milliseconds",
-    )
-    parser.add_argument(
-        "--headless",
-        default=False,
-        action=argparse.BooleanOptionalAction,
-    )
-    return parser.parse_args()
+        return Config(**yaml.safe_load(f))
